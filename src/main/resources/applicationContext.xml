@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:mongo="http://www.springframework.org/schema/data/mongo"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+
+       http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd http://www.springframework.org/schema/data/mongo http://www.springframework.org/schema/data/mongo/spring-mongo.xsd"
+       default-autowire="byName">
+
+    <context:annotation-config/>
+    <context:component-scan base-package="com.tomasky.msp" annotation-config="true">
+    </context:component-scan>
+
+    <bean id="messageService" class="com.tomasky.msp.core.service.impl.MessageServiceImpl">
+        <property name="mailSender" ref="mailSender"/>
+        <property name="redisTemplate" ref="redisTemplate"/>
+        <property name="pushMessageHelper" ref="pushMessageHelper"/>
+        <property name="shortMessageHelper" ref="shortMessageHelper"/>
+        <property name="weiXinMessageHelper" ref="weiXinMessageHelper"/>
+    </bean>
+    <bean id="mailMessageProcessor" class="com.tomasky.msp.core.support.processor.MailMessageProcessor">
+        <property name="mongoTemplate" ref="mongoTemplate"/>
+        <property name="messageService" ref="messageService"/>
+    </bean>
+    <bean id="smsMessageProcessor" class="com.tomasky.msp.core.support.processor.SmsMessageProcessor">
+        <property name="mongoTemplate" ref="mongoTemplate"/>
+        <property name="messageService" ref="messageService"/>
+    </bean>
+    <bean id="pushMessageProcessor" class="com.tomasky.msp.core.support.processor.PushMessageProcessor">
+        <property name="mongoTemplate" ref="mongoTemplate"/>
+        <property name="messageService" ref="messageService"/>
+    </bean>
+    <bean id="imsMessageProcessor" class="com.tomasky.msp.core.support.processor.ImsMessageProcessor">
+        <property name="mongoTemplate" ref="mongoTemplate"/>
+    </bean>
+
+    <bean id="wechatMessageProcessor" class="com.tomasky.msp.core.support.processor.WechatMessageProcessor">
+        <property name="mongoTemplate" ref="mongoTemplate"/>
+        <property name="messageService" ref="messageService"/>
+    </bean>
+    <bean id="redisTemplate" class="org.springframework.data.redis.core.RedisTemplate">
+        <property name="connectionFactory" ref="weixinJedisConnFactory"/>
+        <property name="KeySerializer">
+            <bean class="org.springframework.data.redis.serializer.StringRedisSerializer"></bean>
+        </property>
+        <property name="ValueSerializer">
+            <bean class="org.springframework.data.redis.serializer.StringRedisSerializer"></bean>
+        </property>
+    </bean>
+
+
+    <!--   单独定义一个redis，用于做中控服务器保存微信AK。这样可以供多个应用公用同一个AK  -->
+    <bean id="weixinJedisConnFactory" class="org.springframework.data.redis.connection.jedis.JedisConnectionFactory">
+        <property name="hostName" value="115.28.2.150"/>
+        <property name="port" value="6379"/>
+        <property name="database" value="6"/>
+        <property name="password"
+                  value="mfgkftoajpvH3lds8ykgcnzeWcaAuwhlo0lqzqsappsfacjfenwqiJtadydqwfjrN2obv3xrmfoV6l5jl2ofwgPqndqaemcuppgYkzK4fotunwlznjhb1opvaiaozaYq"/>
+    </bean>
+
+
+    <bean id="weixinRedisTemplate" class="org.springframework.data.redis.core.RedisTemplate">
+        <property name="connectionFactory" ref="weixinJedisConnFactory"/>
+        <property name="KeySerializer">
+            <bean class="org.springframework.data.redis.serializer.StringRedisSerializer"></bean>
+        </property>
+        <property name="ValueSerializer">
+            <bean class="org.springframework.data.redis.serializer.StringRedisSerializer"></bean>
+        </property>
+    </bean>
+    <!--      中控服务器配置结束  -->
+
+
+    <bean id="shortMessageHelper" class="com.tomasky.msp.core.support.helper.ShortMessageHelper">
+        <property name="url" value="http://esms4.etonenet.com/sms/mt"/>
+        <property name="saleSpid" value="9067"/>
+        <property name="salePwd" value="fq@9067"/>
+        <property name="autoSpid" value="6278"/>
+        <property name="autoPwd" value="fqll6278"/>
+        <property name="vipSpid" value="9088"/>
+        <property name="vipPwd" value="fqll9088"/>
+    </bean>
+
+
+    <bean id="mongoTemplate" class="org.springframework.data.mongodb.core.MongoTemplate">
+        <constructor-arg ref="mongo"/>
+        <constructor-arg name="databaseName" value="message"/>
+    </bean>
+    <bean id="mailSender" class="org.springframework.mail.javamail.JavaMailSenderImpl">
+        <property name="host" value="smtp.qq.com"/>
+        <property name="username">
+            <value>q@fanqielaile.com</value>
+        </property>
+        <property name="password" value="fqll123"/>
+        <property name="port" value="25"></property>
+        <property name="javaMailProperties">
+            <props>
+                <prop key="mail.smtp.auth">true</prop>
+            </props>
+        </property>
+    </bean>
+
+    <beans profile="dev">
+
+        <bean id="weiXinMessageHelper" class="com.tomasky.msp.core.support.helper.WeiXinMessageHelper">
+            <property name="modelTipUrl" value="https://api.weixin.qq.com/cgi-bin/message/template/send?access_token=%s"/>
+            <property name="wxHost" value="http://wx.fanqielaile.net" />
+            <property name="wxTokenUrl" value="/weixin/getToken" />
+            <property name="weixinId" value="gh_142c11d5d613" />
+        </bean>
+
+        <mongo:mongo host="192.168.1.28" port="27017"/>
+
+        <bean id="pushMessageHelper" class="com.tomasky.msp.core.support.helper.PushMessageHelper">
+            <property name="keystore" value="Certificates_fanqie_dev.p12"/>
+            <property name="password" value="fanqielaile"/>
+            <property name="isProduction" value="false"/>
+            <property name="pmsMasterSecret" value="93a0659eea785763b429314a"/>
+            <property name="pmsAppkey" value="ac28a5ef7d1cb0cbbf97a0e8"/>
+            <property name="crmMasterSecret" value="d5222a2cc7bfb354675d2cec"/>
+            <property name="crmAppkey" value="1614158cfe6196a3389648d6"/>
+        </bean>
+    </beans>
+
+    <beans profile="test">
+        <bean id="weiXinMessageHelper" class="com.tomasky.msp.core.support.helper.WeiXinMessageHelper">
+            <property name="modelTipUrl" value="https://api.weixin.qq.com/cgi-bin/message/template/send?access_token=%s"/>
+            <property name="wxHost" value="http://wx.fanqielaile.net" />
+            <property name="wxTokenUrl" value="/weixin/getToken" />
+            <property name="weixinId" value="gh_142c11d5d613" />
+        </bean>
+
+        <mongo:mongo host="192.168.1.28" port="27017"/>
+
+        <bean id="pushMessageHelper" class="com.tomasky.msp.core.support.helper.PushMessageHelper">
+            <property name="keystore" value="Certificates_fanqie_dev.p12"/>
+            <property name="password" value="fanqielaile"/>
+            <property name="isProduction" value="false"/>
+            <property name="pmsMasterSecret" value="93a0659eea785763b429314a"/>
+            <property name="pmsAppkey" value="ac28a5ef7d1cb0cbbf97a0e8"/>
+            <property name="crmMasterSecret" value="d5222a2cc7bfb354675d2cec"/>
+            <property name="crmAppkey" value="1614158cfe6196a3389648d6"/>
+        </bean>
+    </beans>
+
+    <beans profile="staging">
+        <bean id="weiXinMessageHelper" class="com.tomasky.msp.core.support.helper.WeiXinMessageHelper">
+            <property name="modelTipUrl" value="https://api.weixin.qq.com/cgi-bin/message/template/send?access_token=%s"/>
+            <property name="wxHost" value="http://wx.fanqielaile.net" />
+            <property name="wxTokenUrl" value="/weixin/getToken" />
+            <property name="weixinId" value="gh_142c11d5d613" />
+        </bean>
+
+        <mongo:mongo host="10.144.10.151" port="37017"/>
+
+        <bean id="pushMessageHelper" class="com.tomasky.msp.core.support.helper.PushMessageHelper">
+            <property name="keystore" value="Certificates_fanqie_dev.p12"/>
+            <property name="password" value="fanqielaile"/>
+            <property name="isProduction" value="false"/>
+            <property name="pmsMasterSecret" value="93a0659eea785763b429314a"/>
+            <property name="pmsAppkey" value="ac28a5ef7d1cb0cbbf97a0e8"/>
+            <property name="crmMasterSecret" value="d5222a2cc7bfb354675d2cec"/>
+            <property name="crmAppkey" value="1614158cfe6196a3389648d6"/>
+        </bean>
+    </beans>
+
+    <beans profile="production">
+        <bean id="weiXinMessageHelper" class="com.tomasky.msp.core.support.helper.WeiXinMessageHelper">
+            <property name="modelTipUrl" value="https://api.weixin.qq.com/cgi-bin/message/template/send?access_token=%s"/>
+            <property name="wxHost" value="http://wx.fanqielaile.net" />
+            <property name="wxTokenUrl" value="/weixin/getToken" />
+            <property name="weixinId" value="gh_142c11d5d613" />
+        </bean>
+
+        <mongo:mongo replica-set="10.144.10.151:27017,10.161.77.140:27017,10.163.227.13:27017"/>
+
+        <bean id="pushMessageHelper" class="com.tomasky.msp.core.support.helper.PushMessageHelper">
+            <property name="keystore" value="Certificates_fanqie_pro.p12"/>
+            <property name="password" value="fanqielaile"/>
+            <property name="isProduction" value="true"/>
+            <property name="pmsMasterSecret" value="93a0659eea785763b429314a"/>
+            <property name="pmsAppkey" value="ac28a5ef7d1cb0cbbf97a0e8"/>
+            <property name="crmMasterSecret" value="d5222a2cc7bfb354675d2cec"/>
+            <property name="crmAppkey" value="1614158cfe6196a3389648d6"/>
+        </bean>
+    </beans>
+
+</beans>
